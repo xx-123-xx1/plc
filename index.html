@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLC 段码屏与彩灯模拟器</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #eee;
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 30px;
+            margin: 0;
+        }
+
+        h1 { color: #00ffcc; font-size: 22px; margin-bottom: 5px; }
+        .subtitle { color: #888; font-size: 14px; margin-bottom: 25px; }
+
+        /* 核心展示区：左边段码屏，右边彩灯 */
+        .main-container {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* --- 段码屏样式 --- */
+        .display-box {
+            position: relative;
+            width: 140px;
+            height: 220px;
+            background-color: #000;
+            border-radius: 10px;
+            box-shadow: inset 0 0 20px #000, 0 0 15px rgba(0, 255, 204, 0.15);
+            border: 2px solid #333;
+        }
+
+        .segment {
+            position: absolute;
+            background-color: #222;
+            transition: all 0.15s;
+            border-radius: 4px;
+        }
+
+        .segment.on {
+            background-color: #ff2a2a;
+            box-shadow: 0 0 15px #ff2a2a, 0 0 30px rgba(255, 42, 42, 0.6);
+        }
+
+        .seg-h { width: 70px; height: 14px; left: 35px; clip-path: polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%); }
+        .seg-v { width: 14px; height: 70px; clip-path: polygon(0 10%, 50% 0, 100% 10%, 100% 90%, 50% 100%, 0 90%); }
+        
+        #seg-a { top: 15px; } #seg-b { top: 30px; right: 20px; } #seg-c { bottom: 30px; right: 20px; }
+        #seg-d { bottom: 15px; } #seg-e { bottom: 30px; left: 20px; } #seg-f { top: 30px; left: 20px; } 
+        #seg-g { top: 103px; }
+
+        /* --- 8个彩灯样式 --- */
+        .lights-box {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        .light-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 14px;
+            color: #888;
+        }
+
+        .light {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #333;
+            border: 2px solid #555;
+            margin-bottom: 5px;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #555;
+            font-weight: bold;
+        }
+
+        /* 彩灯点亮状态（共阴极：高电平亮，这里用亮黄色表示） */
+        .light.on {
+            background-color: #ffcc00;
+            border-color: #ffeb3b;
+            box-shadow: 0 0 20px #ffcc00, 0 0 40px rgba(255, 204, 0, 0.5);
+            color: #000;
+        }
+
+        /* --- 控制区 --- */
+        .control-panel {
+            margin-top: 40px;
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="number"] {
+            padding: 12px; font-size: 20px; width: 80px; text-align: center;
+            border-radius: 8px; border: 2px solid #444; background: #222; color: #fff; outline: none;
+        }
+        input[type="number"]:focus { border-color: #00ffcc; }
+
+        button {
+            padding: 12px 25px; font-size: 18px; background: #00ffcc; color: #111;
+            border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        button:hover { background: #00ccaa; }
+        button:active { transform: scale(0.96); }
+    </style>
+</head>
+<body>
+
+    <h1>PLC 模拟器</h1>
+    <div class="subtitle">输入 1-8：段码屏显示，且对应彩灯亮起。输入 0 或 9：仅段码屏显示。</div>
+
+    <div class="main-container">
+        <!-- 段码屏结构 -->
+        <div class="display-box">
+            <div class="segment seg-h" id="seg-a"></div>
+            <div class="segment seg-v" id="seg-b"></div>
+            <div class="segment seg-v" id="seg-c"></div>
+            <div class="segment seg-h" id="seg-d"></div>
+            <div class="segment seg-v" id="seg-e"></div>
+            <div class="segment seg-v" id="seg-f"></div>
+            <div class="segment seg-h" id="seg-g"></div>
+        </div>
+
+        <!-- 8个彩灯结构 -->
+        <div class="lights-box" id="lights-container">
+            <div class="light-item"><div class="light" id="light-1">1</div>彩灯1</div>
+            <div class="light-item"><div class="light" id="light-2">2</div>彩灯2</div>
+            <div class="light-item"><div class="light" id="light-3">3</div>彩灯3</div>
+            <div class="light-item"><div class="light" id="light-4">4</div>彩灯4</div>
+            <div class="light-item"><div class="light" id="light-5">5</div>彩灯5</div>
+            <div class="light-item"><div class="light" id="light-6">6</div>彩灯6</div>
+            <div class="light-item"><div class="light" id="light-7">7</div>彩灯7</div>
+            <div class="light-item"><div class="light" id="light-8">8</div>彩灯8</div>
+        </div>
+    </div>
+
+    <!-- 控制面板 -->
+    <div class="control-panel">
+        <input type="number" id="numInput" min="0" max="9" placeholder="0-9" value="0">
+        <button onclick="updateDisplay()">显示</button>
+    </div>
+
+    <script>
+        // 段码映射
+        var segs = {
+            'a': document.getElementById('seg-a'), 'b': document.getElementById('seg-b'),
+            'c': document.getElementById('seg-c'), 'd': document.getElementById('seg-d'),
+            'e': document.getElementById('seg-e'), 'f': document.getElementById('seg-f'),
+            'g': document.getElementById('seg-g')
+        };
+        var digitMap = {
+            "0": ["a","b","c","d","e","f"], "1": ["b","c"], "2": ["a","b","g","e","d"],
+            "3": ["a","b","g","c","d"], "4": ["f","g","b","c"], "5": ["a","f","g","c","d"],
+            "6": ["a","f","g","e","d","c"], "7": ["a","b","c"], "8": ["a","b","c","d","e","f","g"],
+            "9": ["a","b","c","d","f","g"]
+        };
+
+        // 彩灯映射 (获取1~8号灯的DOM元素)
+        var lights = {};
+        for (var i = 1; i <= 8; i++) {
+            lights[i] = document.getElementById('light-' + i);
+        }
+
+        function updateDisplay() {
+            var inputVal = document.getElementById('numInput').value;
+
+            // 1. 重置所有段码屏和彩灯（全部熄灭）
+            for (var key in segs) { segs[key].classList.remove('on'); }
+            for (var k in lights) { lights[k].classList.remove('on'); }
+
+            // 2. 点亮对应的段码屏
+            if (digitMap[inputVal] !== undefined) {
+                var activeSegs = digitMap[inputVal];
+                for (var i = 0; i < activeSegs.length; i++) {
+                    segs[activeSegs[i]].classList.add('on');
+                }
+            }
+
+            // 3. 点亮对应的彩灯（仅在输入 1~8 时生效）
+            if (inputVal >= "1" && inputVal <= "8") {
+                var lightIndex = parseInt(inputVal);
+                if (lights[lightIndex]) {
+                    lights[lightIndex].classList.add('on');
+                }
+            }
+        }
+
+        // 绑定回车键
+        document.getElementById('numInput').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') { updateDisplay(); }
+        });
+
+        // 页面加载时默认显示0
+        window.onload = function() { updateDisplay(); };
+    </script>
+
+</body>
+</html>
