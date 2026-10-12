@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>共阴极七段数码管模拟器</title>
+    <style>
+        /* 页面基础样式 */
+        body {
+            background-color: #1a1a1a;
+            color: #eeeeee;
+            font-family: 'Microsoft YaHei', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 50px;
+            margin: 0;
+        }
+
+        h1 {
+            color: #00ffcc;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #888888;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        /* 数码管外壳 */
+        .display-box {
+            position: relative;
+            width: 160px;
+            height: 260px;
+            background-color: #000000;
+            border-radius: 10px;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 255, 204, 0.2);
+            border: 2px solid #333333;
+            margin-bottom: 40px;
+        }
+
+        /* 段的通用样式 */
+        .segment {
+            position: absolute;
+            background-color: #222222;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+        }
+
+        /* 点亮时的样式：共阴极，高电平亮（红色） */
+        .segment.on {
+            background-color: #ff2a2a;
+            box-shadow: 0 0 15px #ff2a2a, 0 0 30px rgba(255, 42, 42, 0.6);
+        }
+
+        /* 定义水平段 (a, d, g) 的形状 - 两端带斜角 */
+        .seg-h {
+            width: 80px;
+            height: 16px;
+            left: 40px;
+            clip-path: polygon(10% 0, 90% 0, 100% 50%, 90% 100%, 10% 100%, 0 50%);
+        }
+
+        /* 定义垂直段 (b, c, e, f) 的形状 - 两端带斜角 */
+        .seg-v {
+            width: 16px;
+            height: 80px;
+            clip-path: polygon(0 10%, 50% 0, 100% 10%, 100% 90%, 50% 100%, 0 90%);
+        }
+
+        /* 各段的具体定位 */
+        #seg-a { top: 20px; }
+        #seg-b { top: 40px; right: 20px; }
+        #seg-c { bottom: 40px; right: 20px; }
+        #seg-d { bottom: 20px; }
+        #seg-e { bottom: 40px; left: 20px; }
+        #seg-f { top: 40px; left: 20px; }
+        #seg-g { top: 122px; }
+
+        /* 控制面板样式 */
+        .control-panel {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="number"] {
+            padding: 12px;
+            font-size: 20px;
+            width: 80px;
+            text-align: center;
+            border-radius: 8px;
+            border: 2px solid #444444;
+            background-color: #222222;
+            color: #ffffff;
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: #00ffcc;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 18px;
+            background-color: #00ffcc;
+            color: #111111;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #00ccaa;
+        }
+
+        button:active {
+            transform: scale(0.96);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>共阴极七段数码管模拟器</h1>
+    <div class="subtitle">输入 0-9，对应的段会点亮（高电平）</div>
+
+    <!-- 数码管结构 -->
+    <div class="display-box">
+        <div class="segment seg-h" id="seg-a"></div>
+        <div class="segment seg-v" id="seg-b"></div>
+        <div class="segment seg-v" id="seg-c"></div>
+        <div class="segment seg-h" id="seg-d"></div>
+        <div class="segment seg-v" id="seg-e"></div>
+        <div class="segment seg-v" id="seg-f"></div>
+        <div class="segment seg-h" id="seg-g"></div>
+    </div>
+
+    <!-- 控制面板 -->
+    <div class="control-panel">
+        <input type="number" id="numInput" min="0" max="9" placeholder="0-9" value="0">
+        <button onclick="updateDisplay()">显示数字</button>
+    </div>
+
+    <script>
+        // 获取所有段的对象
+        var segs = {
+            'a': document.getElementById('seg-a'),
+            'b': document.getElementById('seg-b'),
+            'c': document.getElementById('seg-c'),
+            'd': document.getElementById('seg-d'),
+            'e': document.getElementById('seg-e'),
+            'f': document.getElementById('seg-f'),
+            'g': document.getElementById('seg-g')
+        };
+
+        // 共阴极码表映射（哪些段亮，就写哪些段）
+        var digitMap = {
+            "0": ["a", "b", "c", "d", "e", "f"],
+            "1": ["b", "c"],
+            "2": ["a", "b", "g", "e", "d"],
+            "3": ["a", "b", "g", "c", "d"],
+            "4": ["f", "g", "b", "c"],
+            "5": ["a", "f", "g", "c", "d"],
+            "6": ["a", "f", "g", "e", "d", "c"],
+            "7": ["a", "b", "c"],
+            "8": ["a", "b", "c", "d", "e", "f", "g"],
+            "9": ["a", "b", "c", "d", "f", "g"]
+        };
+
+        // 更新数码管显示的函数
+        function updateDisplay() {
+            var inputVal = document.getElementById('numInput').value;
+
+            // 步骤1：先把所有的段熄灭
+            for (var key in segs) {
+                segs[key].classList.remove('on');
+            }
+
+            // 步骤2：判断输入是否在 0-9 范围内
+            if (digitMap[inputVal] !== undefined) {
+                // 获取需要点亮的段列表
+                var activeSegments = digitMap[inputVal];
+                // 遍历点亮
+                for (var i = 0; i < activeSegments.length; i++) {
+                    var segId = activeSegments[i];
+                    segs[segId].classList.add('on');
+                }
+            } else {
+                // 如果是其他数字或空值，全部熄灭（什么都不做即可，因为上面已经清空）
+                console.log("输入无效，数字范围需在 0-9 之间");
+            }
+        }
+
+        // 监听键盘回车键，方便操作
+        document.getElementById('numInput').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                updateDisplay();
+            }
+        });
+
+        // 页面加载完成后，默认显示一次数字 0
+        window.onload = function() {
+            updateDisplay();
+        };
+    </script>
+
+</body>
+</html>
